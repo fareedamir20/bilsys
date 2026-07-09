@@ -1,0 +1,281 @@
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { store, Bill } from './store';
+import { formatPDFDateTime, formatDateDMY } from './utils';
+
+export function exportDataPDF(
+  bills: Bill[],
+  month: string,
+  year: string,
+  floor: string,
+  fromMonth: string,
+  toMonth: string
+) {
+  const doc = new jsPDF();
+  
+  // Header
+  doc.setFontSize(20);
+  doc.text('DHA PHASE 5 2-B', 14, 22);
+  doc.setFontSize(14);
+  doc.text('Data Export Report', 14, 30);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 38);
+  doc.text(`Filters applied: Floor: ${floor || 'All'}, Period: ${fromMonth || 'Any'} - ${toMonth || 'Any'}`, 14, 44);
+
+  const tableData: any[][] = [];
+  let grandTotal = 0;
+  
+  const categoryTotals: Record<string, number> = {};
+
+  bills.forEach(bill => {
+    bill.expenses.forEach(exp => {
+      // Add row
+      tableData.push([
+        `${bill.month} ${bill.year}`,
+        bill.type === 'general' ? 'General' : 'Lift',
+        exp.title,
+        bill.floor,
+        `PKR ${exp.amount.toLocaleString()}`
+      ]);
+      grandTotal += exp.amount;
+      categoryTotals[exp.title] = (categoryTotals[exp.title] || 0) + exp.amount;
+    });
+
+    bill.additionalExpenses?.forEach(exp => {
+      tableData.push([
+        `${bill.month} ${bill.year}`,
+        bill.type === 'general' ? 'General' : 'Lift',
+        exp.title,
+        bill.floor,
+        `PKR ${exp.amount.toLocaleString()}`
+      ]);
+      grandTotal += exp.amount;
+      categoryTotals[exp.title] = (categoryTotals[exp.title] || 0) + exp.amount;
+    });
+  });
+
+  autoTable(doc, {
+    startY: 50,
+    head: [['Month', 'Bill Type', 'Category', 'Floor', 'Amount']],
+    body: tableData,
+    foot: [['', '', '', 'Total', `PKR ${grandTotal.toLocaleString()}`]],
+    theme: 'grid',
+    headStyles: { fillColor: [22, 30, 43], textColor: 255 },
+    footStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 8 },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+  // Render per-category totals
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+  doc.text('Category Summaries', 14, finalY);
+
+  const catData = Object.entries(categoryTotals).map(([cat, total]) => [cat, `PKR ${total.toLocaleString()}`]);
+  autoTable(doc, {
+    startY: finalY + 5,
+    head: [['Category', 'Total Amount']],
+    body: catData,
+    theme: 'striped',
+    headStyles: { fillColor: [22, 30, 43], textColor: 255 },
+    styles: { fontSize: 8 },
+  });
+
+  doc.save(`Export_Data_${formatDateDMY(new Date().toISOString())}.pdf`);
+}
+
+export function generateBillPDF(bill: Bill) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPos = 0;
+
+  // Header Background (Dark Blue)
+  doc.setFillColor(22, 30, 43); // #161e2b
+  doc.rect(0, 0, pageWidth, 45, 'F');
+
+  // Header Ribbon (Light Blue)
+  doc.setFillColor(59, 130, 246); // #3b82f6
+  doc.rect(0, 45, pageWidth, 4, 'F');
+
+  // Header Text
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text('DHA PHASE 5 2-B', pageWidth / 2, 20, { align: 'center' });
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(11);
+  doc.text(bill.type === 'general' ? 'MONTHLY GENERAL BILL' : 'MONTHLY LIFT BILL', pageWidth / 2, 30, { align: 'center' });
+  
+  doc.setFontSize(9);
+  doc.setTextColor(200, 200, 200);
+  doc.text(`Bill ID: ${bill.id.substring(0, 8).toUpperCase()}`, pageWidth / 2, 38, { align: 'center' });
+
+  yPos = 58;
+
+  // Info Box Measurements
+  const col1 = 25;
+  const col2 = 60;
+  const col3 = 115;
+  const col4 = 145;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  const floorText = doc.splitTextToSize(bill.floor || 'N/A', 50);
+  const generatedText = doc.splitTextToSize(formatPDFDateTime(bill.generatedAt), 40);
+  
+  const maxLines = Math.max(floorText.length, generatedText.length);
+  const boxHeight = 16 + (maxLines * 4); // base 16 + dynamic height
+
+  // Info Box Background
+  doc.setFillColor(248, 250, 252); // #f8fafc
+  doc.roundedRect(20, yPos, pageWidth - 40, boxHeight, 3, 3, 'F');
+
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PERIOD', col1, yPos + 7);
+  doc.text('FLOOR', col2, yPos + 7);
+  doc.text('DUE DATE', col3, yPos + 7);
+  doc.text('GENERATED', col4, yPos + 7);
+
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${bill.month} ${bill.year}`, col1, yPos + 14);
+  
+  doc.text(floorText, col2, yPos + 14);
+  
+  doc.text(formatDateDMY(bill.dueDate), col3, yPos + 14);
+  
+  doc.text(generatedText, col4, yPos + 14);
+
+  // Adjust Y Pos based on the number of lines generated by splitTextToSize
+  yPos += boxHeight + 8;
+
+  // Generated By 
+  doc.setTextColor(100, 116, 139); // slate-500
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated by: ${bill.userName || 'Management'}`, 20, yPos);
+
+  yPos += 8;
+
+  // Table Header
+  doc.setFillColor(22, 30, 43); // #161e2b
+  doc.roundedRect(20, yPos, pageWidth - 40, 11, 2, 2, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('EXPENSE DESCRIPTION', 26, yPos + 7);
+  doc.text('AMOUNT (PKR)', pageWidth - 26, yPos + 7, { align: 'right' });
+  
+  yPos += 16;
+  
+  // Table Body (Regular Expenses)
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  const drawRow = (title: string, amount: number) => {
+    // Add page break if needed
+    if (yPos > pageHeight - 60) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(title, 26, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`PKR ${amount.toLocaleString()}`, pageWidth - 26, yPos, { align: 'right' });
+    
+    yPos += 6;
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.line(20, yPos, pageWidth - 20, yPos);
+    yPos += 8;
+  };
+
+  bill.expenses.forEach(exp => {
+    if (exp.amount > 0) {
+      drawRow(exp.title, exp.amount);
+    }
+  });
+
+  // Additional Expenses (rendered normally)
+  if (bill.additionalExpenses && bill.additionalExpenses.length > 0) {
+    bill.additionalExpenses.forEach(exp => {
+      if (exp.amount > 0) {
+        drawRow(exp.title, exp.amount);
+      }
+    });
+  }
+
+  yPos += 4; // Extra spacing before total
+
+  // Add page break if total box doesn't fit
+  if (yPos > pageHeight - 70) {
+    doc.addPage();
+    yPos = 20;
+  }
+
+  // Total Box
+  doc.setFillColor(22, 30, 43); // #161e2b
+  doc.roundedRect(20, yPos, pageWidth - 40, 16, 3, 3, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('TOTAL AMOUNT', 26, yPos + 10);
+  
+  doc.setTextColor(16, 185, 129); // emerald-500
+  doc.setFontSize(14);
+  doc.text(`PKR ${bill.totalAmount.toLocaleString()}`, pageWidth - 26, yPos + 10.5, { align: 'right' });
+
+  yPos += 28;
+
+  // Payment Methods
+  const paymentMethods = store.settings?.paymentMethods || [
+    'EasyPaisa: M. ZAFAR — A/C 0307 5965879',
+    'Soneri Bank: MUHAMMAD ZAFAR — A/C 30000966319'
+  ];
+  const paymentBoxHeight = 12 + (paymentMethods.length * 6);
+  
+  doc.setFillColor(248, 250, 252); // #f8fafc
+  doc.roundedRect(20, yPos, pageWidth - 40, paymentBoxHeight, 3, 3, 'F');
+  
+  doc.setTextColor(59, 130, 246); // blue-500
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Payment Methods', 26, yPos + 7);
+  
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setFont('helvetica', 'normal');
+  paymentMethods.forEach((pm, index) => {
+    doc.text(pm, 26, yPos + 14 + (index * 6));
+  });
+
+  // Footer (Bottom of page always)
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(8);
+  doc.text('This bill is system generated and does not require any signature or stamp.', pageWidth / 2, pageHeight - 20, { align: 'center' });
+  
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Thank You — Management', pageWidth / 2, pageHeight - 15, { align: 'center' });
+
+  // Save PDF
+  doc.save(`${bill.floor?.replace(/\s+/g, '_') || 'Unknown_Floor'}_${bill.month}_${bill.year}_${bill.type === 'general' ? 'general' : 'lift'}_bill.pdf`);
+}
+

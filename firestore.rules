@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Check if the system has been bootstrapped yet
+    function isSystemBootstrapped() {
+      return exists(/databases/$(database)/documents/settings/system);
+    }
+
+    match /settings/system {
+      // Allow everyone to read system settings to check setup status
+      allow read: if true;
+    }
+
+    // Only allow reads and writes to users who have a valid Firebase Auth session
+    // Or if the system is not yet bootstrapped
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

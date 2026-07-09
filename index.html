@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BillingSys</title>
+    <meta property="og:title" content="BillingSys" />
+    <meta property="og:description" content="A production-grade building billing management system." />
+    <!-- App Logo for sharing -->
+    <meta property="og:image" content="https://api.dicebear.com/7.x/shapes/svg?seed=BillingSys" />
+    <meta property="og:url" content="https://billingsys2b.app" />
+    <script>
+      window.deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        // Dispatch custom event for React to pick up if it mounts later
+        window.dispatchEvent(new Event('pwa-prompt-ready'));
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

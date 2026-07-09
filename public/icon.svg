@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Light background circle -->
+  <circle cx="256" cy="256" r="240" fill="#f8f9fa"/>
+  <!-- Horizontal line base -->
+  <line x1="80" y1="380" x2="430" y2="380" stroke="#71717a" stroke-width="3" stroke-linecap="round"/>
+  <!-- Document back -->
+  <path d="M360,180 L360,380 L160,380 L160,180 Z" fill="#9096fc"/>
+  <!-- Document Folded Page -->
+  <path d="M150,150 L310,150 C315,150 320,155 320,160 L320,200 C320,205 325,210 330,210 L370,210 C375,210 380,215 380,220 L380,380 L150,380 Z" fill="#a4a9fc" stroke="#a4a9fc" stroke-linejoin="round"/>
+  <!-- Fold corner -->
+  <path d="M315,150 L380,215 L325,215 C319.477,215 315,210.523 315,205 L315,150 Z" fill="#7178eb"/>
+  
+  <!-- Content pills on document -->
+  <rect x="180" y="180" width="120" height="20" rx="10" fill="#ffffff" />
+  
+  <rect x="180" y="240" width="80" height="6" rx="3" fill="#ffffff" />
+  <rect x="300" y="240" width="40" height="6" rx="3" fill="#ffffff" />
+  
+  <rect x="180" y="280" width="80" height="6" rx="3" fill="#ffffff" />
+  <rect x="300" y="280" width="40" height="6" rx="3" fill="#ffffff" />
+  
+  <rect x="310" y="340" width="30" height="6" rx="3" fill="#ffffff" />
+  
+  <!-- Pen -->
+  <g transform="translate(10, 0)">
+    <!-- Pen Tip -->
+    <path d="M305,340 L315,355 L330,345 L320,330 Z" fill="#facc15" />
+    <path d="M305,340 L310,350 L303,348 Z" fill="#87550f" />
+    <!-- Pen Barrel -->
+    <path d="M320,330 L330,345 L430,220 L420,205 Z" fill="#eab308" />
+    <!-- Pen grip details -->
+    <path d="M410,218 L420,233 L425,227 L415,212 Z" fill="#a16207" />
+  </g>
+</svg>

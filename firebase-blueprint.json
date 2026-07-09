@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "username": { "type": "string" },
+        "pin": { "type": "string" },
+        "role": { "type": "string" }
+      }
+    },
+    "Session": {
+       "title": "Session",
+       "description": "User sessions",
+       "type": "object",
+       "properties": {}
+    },
+    "Bill": {
+       "title": "Bill",
+       "description": "Monthly bill",
+       "type": "object",
+       "properties": {}
+    },
+    "Receipt": {
+       "title": "Receipt",
+       "description": "Receipts",
+       "type": "object",
+       "properties": {}
+    },
+    "ActivityLog": {
+       "title": "ActivityLog",
+       "description": "Logs",
+       "type": "object",
+       "properties": {}
+    },
+    "PendingExpense": {
+       "title": "PendingExpense",
+       "description": "Pending Expense",
+       "type": "object",
+       "properties": {}
+    },
+    "SystemSettings": {
+       "title": "SystemSettings",
+       "description": "Settings",
+       "type": "object",
+       "properties": {}
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Users"
+    },
+    "/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/Session" },
+      "description": "Sessions"
+    },
+    "/bills/{billId}": {
+      "schema": { "$ref": "#/entities/Bill" },
+      "description": "Bills"
+    },
+    "/receipts/{receiptId}": {
+      "schema": { "$ref": "#/entities/Receipt" },
+      "description": "Receipts"
+    },
+    "/activity_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Logs"
+    },
+    "/pending_expenses/{expId}": {
+      "schema": { "$ref": "#/entities/PendingExpense" },
+      "description": "Pending"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SystemSettings" },
+      "description": "Settings"
+    }
+  }
+}
