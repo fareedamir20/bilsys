@@ -87,7 +87,14 @@ export function exportDataPDF(
   doc.save(`Export_Data_${formatDateDMY(new Date().toISOString())}.pdf`);
 }
 
-export function generateBillPDF(bill: Bill) {
+export function viewBillPDF(bill: Bill) {
+  const doc = getBillPDFDoc(bill);
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}
+
+function getBillPDFDoc(bill: Bill) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -276,6 +283,11 @@ export function generateBillPDF(bill: Bill) {
   doc.text('Thank You — Management', pageWidth / 2, pageHeight - 15, { align: 'center' });
 
   // Save PDF
+  return doc;
+}
+
+export function generateBillPDF(bill: Bill) {
+  const doc = getBillPDFDoc(bill);
   doc.save(`${bill.floor?.replace(/\s+/g, '_') || 'Unknown_Floor'}_${bill.month}_${bill.year}_${bill.type === 'general' ? 'general' : 'lift'}_bill.pdf`);
 }
 

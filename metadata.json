@@ -2,5 +2,5 @@
   "name": "BillingSys",
   "description": "A production-grade building billing management system built with React, Tailwind CSS, shadcn/ui, and Firebase.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

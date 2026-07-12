@@ -27,6 +27,7 @@ export interface SystemSettings {
   paymentMethods: string[];
   generalCategories: ExpenseCategory[];
   liftCategories: ExpenseCategory[];
+  allowUserDownloads?: boolean;
 }
 
 export interface AdditionalExpense {
@@ -59,6 +60,9 @@ export interface Receipt {
   category: string;
   floor?: string;
   paidDate?: string; // YYYY-MM-DD
+  month?: string;
+  year?: string;
+  status?: string;
   fileName: string;
   fileData: string; // base64
   uploadedAt: string;

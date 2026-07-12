@@ -13,7 +13,10 @@ import {
   Sun,
   Menu,
   X,
-  BarChart
+  BarChart,
+  Users,
+  CheckCircle2,
+  Download
 } from 'lucide-react';
 import { store, User } from '../lib/store';
 import { useNavigate } from 'react-router-dom';
@@ -123,14 +126,39 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
           ))}
 
           {user?.role === 'admin' && (
-            <div className="pt-4">
-              <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-3 mb-2">Admin Control</div>
-              <NavLink 
-                to="/admin" 
-                icon={Settings} 
-                label="Admin Panel" 
-                onClick={() => setIsOpen(false)} 
-              />
+            <div className="pt-6 space-y-6">
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-3 mb-2">Admin Control</div>
+                <NavLink 
+                  to="/admin" 
+                  icon={Settings} 
+                  label="Admin Panel" 
+                  onClick={() => setIsOpen(false)} 
+                />
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-3 mb-2">Management</div>
+                <div className="space-y-1">
+                  <NavLink to="/admin?tab=users" icon={Users} label="User Management" onClick={() => setIsOpen(false)} />
+                  <NavLink to="/admin?tab=approvals" icon={CheckCircle2} label="Approvals" onClick={() => setIsOpen(false)} />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-3 mb-2">Configuration</div>
+                <div className="space-y-1">
+                  <NavLink to="/admin?tab=settings" icon={Settings} label="System Settings" onClick={() => setIsOpen(false)} />
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest px-3 mb-2">Data & Reports</div>
+                <div className="space-y-1">
+                  <NavLink to="/admin?tab=logs" icon={History} label="Activity Logs" onClick={() => setIsOpen(false)} />
+                  <NavLink to="/admin?tab=export" icon={Download} label="Export Data" onClick={() => setIsOpen(false)} />
+                </div>
+              </div>
             </div>
           )}
         </nav>

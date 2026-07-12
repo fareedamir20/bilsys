@@ -12,13 +12,27 @@ import {
 } from '../lib/firestoreSync';
 import { toast } from 'sonner';
 import { exportDataPDF } from '../lib/pdfGenerator';
-import { Loader2, Users, Settings as SettingsIcon, CheckCircle2, History as HistoryIcon, Plus, Trash2, SwitchCamera, Pencil, Download } from 'lucide-react';
+import { Loader2, Users, Settings as SettingsIcon, CheckCircle2, History as HistoryIcon, Plus, Trash2, SwitchCamera, Pencil, Download, BarChart3, Shield, Webhook } from 'lucide-react';
 import { formatDateTimeDMY } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { query, collection, where, getDocs } from 'firebase/firestore';
+import { useSearchParams } from 'react-router-dom';
 
 export function AdminPage({ user }: { user: User | null }) {
-  const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'approvals' | 'logs' | 'export'>('users');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as any;
+  const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'approvals' | 'logs' | 'export'>(tabParam || 'users');
+
+  useEffect(() => {
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+    setSearchParams({ tab });
+  };
   
   // Export Data States
   const [exportFrom, setExportFrom] = useState(''); // YYYY-MM
@@ -249,33 +263,13 @@ export function AdminPage({ user }: { user: User | null }) {
     setSettings(prev => prev ? { ...prev, [key]: value } : prev);
   };
 
-  const tabs = [
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'settings', label: 'System Settings', icon: SettingsIcon },
-    { id: 'approvals', label: 'Approvals', icon: CheckCircle2 },
-    { id: 'logs', label: 'Activity Logs', icon: HistoryIcon },
-    { id: 'export', label: 'Export Data', icon: Download },
-  ] as const;
-
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-32">
-      <h1 className="text-3xl font-heading font-bold mb-2">Admin Panel</h1>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto pb-32">
+      <h1 className="text-3xl font-heading font-bold mb-6">Admin Panel</h1>
       
-      <div className="flex bg-secondary/50 p-1 rounded-xl w-full sm:w-fit overflow-x-auto no-scrollbar">
-        {tabs.map(t => (
-          <button 
-            key={t.id}
-            className={`flex items-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setActiveTab(t.id)}
-          >
-            <t.icon className="w-4 h-4" /> <span className="hidden sm:inline">{t.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-8">
+      <div className="w-full">
         {/* USERS TAB */}
-        {activeTab === 'users' && (
+          {activeTab === 'users' && (
           <div className="space-y-6">
             <div className="glass-card p-6 border-l-4 border-l-primary">
               <h3 className="font-heading font-semibold text-lg mb-4">{editingUserId ? 'Edit User' : 'Add New User'}</h3>
@@ -372,7 +366,18 @@ export function AdminPage({ user }: { user: User | null }) {
                       <input type="number" min="1" className="input-field w-24 text-right" value={settings.maxBillsPerMonth ?? 1} onChange={e=>updateSetting('maxBillsPerMonth', parseInt(e.target.value)||1)} />
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="flex items-center justify-between border-t border-border/50 pt-4">
+                      <div>
+                        <label className="text-sm font-medium">Allow User Downloads</label>
+                        <p className="text-xs text-muted-foreground">Allow regular users to download receipts and export bills.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={settings.allowUserDownloads ?? true} onChange={e=>updateSetting('allowUserDownloads', e.target.checked)} />
+                        <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="space-y-2 pt-2 border-t border-border/50">
                       <label className="text-sm font-medium">Dashboard Message</label>
                       <textarea className="input-field w-full min-h-[60px]" value={settings.dashboardMessage ?? ''} onChange={e=>updateSetting('dashboardMessage', e.target.value)} placeholder="Message shown on users' dashboard..." />
                     </div>
@@ -441,7 +446,7 @@ export function AdminPage({ user }: { user: User | null }) {
                           className="input-field text-sm min-h-[80px]"
                           value={newGenCatFloors}
                           onChange={e => {
-                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                            const selected = Array.from(e.target.selectedOptions, (option: any) => option.value);
                             setNewGenCatFloors(selected.includes('all') ? [] : selected);
                           }}
                         >
@@ -557,7 +562,7 @@ export function AdminPage({ user }: { user: User | null }) {
                           className="input-field text-sm min-h-[80px]"
                           value={newLiftCatFloors}
                           onChange={e => {
-                            const selected = Array.from(e.target.selectedOptions, option => option.value);
+                            const selected = Array.from(e.target.selectedOptions, (option: any) => option.value);
                             setNewLiftCatFloors(selected.includes('all') ? [] : selected);
                           }}
                         >

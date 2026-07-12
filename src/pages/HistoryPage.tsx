@@ -2,9 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Bill, Receipt } from '../lib/store';
 import { pullAllFromFirestore, pushDeleteBill, pushDeleteReceipt, subscribeToChanges } from '../lib/firestoreSync';
 import { toast } from 'sonner';
-import { Loader2, FileText, Download, Trash2, FileIcon, Edit2, X, BarChart2, Plus } from 'lucide-react';
+import { Loader2, FileText, Download, Trash2, FileIcon, Edit2, X, BarChart2, Plus, Eye } from 'lucide-react';
 import { formatDateTimeDMY, formatDateDMY } from '../lib/utils';
-import { generateBillPDF } from '../lib/pdfGenerator';
+import { generateBillPDF, viewBillPDF } from '../lib/pdfGenerator';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -15,6 +15,7 @@ const YEARS = ['All', '2024', '2025', '2026', '2027', '2028', '2029', '2030'];
 export function HistoryPage({ user }: { user: User | null }) {
   const [bills, setBills] = useState<Bill[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState<'bills' | 'receipts' | 'charts'>('bills');
@@ -34,6 +35,7 @@ export function HistoryPage({ user }: { user: User | null }) {
       if (data) {
         setBills(user?.role === 'admin' ? data.bills : data.bills.filter(b => b.userId === user?.id));
         setReceipts(user?.role === 'admin' ? data.receipts : data.receipts.filter(r => r.userId === user?.id));
+        setSettings(data.settings);
       }
       setLoading(false);
     });
@@ -46,6 +48,9 @@ export function HistoryPage({ user }: { user: User | null }) {
       }
       if (collectionName === 'receipts') {
         setReceipts(user?.role === 'admin' ? data : data.filter((r: Receipt) => r.userId === user?.id));
+      }
+      if (collectionName === 'settings') {
+        setSettings(data);
       }
     });
 
@@ -163,6 +168,48 @@ export function HistoryPage({ user }: { user: User | null }) {
     return Array.from(floorSet).sort();
   }, [bills]);
 
+  const handleExportCSV = () => {
+    let csv = '';
+    if (activeTab === 'bills') {
+      csv = user?.role === 'admin' ? 'Type,Month,Year,Floor,User,Amount,GeneratedAt\n' : 'Type,Month,Year,Floor,Amount,GeneratedAt\n';
+      filteredBills.forEach(b => {
+        const row = [
+          b.type === 'general' ? 'General' : 'Lift',
+          b.month,
+          b.year,
+          `"${b.floor}"`,
+          ...(user?.role === 'admin' ? [`"${b.userName}"`] : []),
+          b.totalAmount || 0,
+          `"${formatDateTimeDMY(b.generatedAt)}"`
+        ];
+        csv += row.join(',') + '\n';
+      });
+    } else if (activeTab === 'receipts') {
+      csv = user?.role === 'admin' ? 'Category,Floor,Period,Status,UploadedAt,User\n' : 'Category,Floor,Period,Status,UploadedAt\n';
+      filteredReceipts.forEach(r => {
+        const row = [
+          `"${r.category}"`,
+          `"${r.floor || ''}"`,
+          `"${r.month && r.year ? `${r.month} ${r.year}` : ''}"`,
+          `"${r.status || 'Paid'}"`,
+          `"${formatDateTimeDMY(r.uploadedAt)}"`,
+          ...(user?.role === 'admin' ? [`"${r.userName}"`] : []),
+        ];
+        csv += row.join(',') + '\n';
+      });
+    }
+    
+    if (!csv) return;
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeTab}_export_${formatDateDMY(new Date().toISOString())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
 
   if (loading || !user) return <div className="p-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
@@ -175,6 +222,14 @@ export function HistoryPage({ user }: { user: User | null }) {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3">
+          {(user?.role === 'admin' || settings?.allowUserDownloads !== false) && activeTab !== 'charts' && (
+            <button 
+              onClick={handleExportCSV}
+              className="btn-primary py-2 h-10 px-4 text-sm flex items-center gap-2 mr-2"
+            >
+              <FileText className="w-4 h-4" /> Export CSV
+            </button>
+          )}
           <select className="input-field min-w-[120px]" value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
             {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
@@ -277,15 +332,24 @@ export function HistoryPage({ user }: { user: User | null }) {
                     <td className="px-6 py-4 text-muted-foreground">{formatDateTimeDMY(bill.generatedAt)}</td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => generateBillPDF(bill)}
-                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20"
-                          title="Download PDF"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
+                        {(user?.role === 'admin' || settings?.allowUserDownloads !== false) && (
+                          <button 
+                            onClick={() => generateBillPDF(bill)}
+                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20"
+                            title="Download PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        )}
                         {user?.role === 'admin' && (
                           <>
+                            <button 
+                              onClick={() => viewBillPDF(bill)}
+                              className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20"
+                              title="View Bill"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button 
                               onClick={() => setEditBill(bill)}
                               className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20"
@@ -369,14 +433,37 @@ export function HistoryPage({ user }: { user: User | null }) {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <a 
-                          href={receipt.fileData}
-                          download={receipt.fileName}
-                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
-                        >
-                          <Download className="w-4 h-4" />
-                          <span className="hidden sm:inline">Download</span>
-                        </a>
+                        {user?.role === 'admin' && (
+                          <button
+                            onClick={() => {
+                              const w = window.open('about:blank', '_blank');
+                              if (w) {
+                                if (receipt.fileData.startsWith('data:image')) {
+                                  w.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;"><img src="${receipt.fileData}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
+                                } else if (receipt.fileData.startsWith('data:application/pdf')) {
+                                  w.document.write(`<body style="margin:0;"><iframe src="${receipt.fileData}" width="100%" height="100%" style="border:none;"></iframe></body>`);
+                                } else {
+                                  w.location.href = receipt.fileData;
+                                }
+                              }
+                            }}
+                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
+                            title="View Receipt"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden sm:inline">View</span>
+                          </button>
+                        )}
+                        {(user?.role === 'admin' || settings?.allowUserDownloads !== false) && (
+                          <a 
+                            href={receipt.fileData}
+                            download={receipt.fileName}
+                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
+                          >
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">Download</span>
+                          </a>
+                        )}
                         {(user?.role === 'admin' || receipt.userId === user?.id) && (
                           <button 
                             onClick={() => setDeleteConfirm({ type: 'receipt', id: receipt.id })}

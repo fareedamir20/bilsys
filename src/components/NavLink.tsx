@@ -12,7 +12,9 @@ interface NavLinkProps {
 
 export const NavLink: React.FC<NavLinkProps> = ({ to, icon: Icon, label, onClick }) => {
   const location = useLocation();
-  const isActive = location.pathname === to;
+  const isActive = to.includes('?') 
+    ? location.pathname + location.search === to 
+    : location.pathname === to;
 
   return (
     <Link

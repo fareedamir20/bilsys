@@ -38,7 +38,7 @@ function AppLayout({ children, user, onLogout }: { children: React.ReactNode, us
   );
 }
 
-function ProtectedRoute({ 
+export function ProtectedRoute({ 
   children, 
   user,
   adminOnly = false,
