@@ -433,27 +433,25 @@ export function HistoryPage({ user }: { user: User | null }) {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {user?.role === 'admin' && (
-                          <button
-                            onClick={() => {
-                              const w = window.open('about:blank', '_blank');
-                              if (w) {
-                                if (receipt.fileData.startsWith('data:image')) {
-                                  w.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;"><img src="${receipt.fileData}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
-                                } else if (receipt.fileData.startsWith('data:application/pdf')) {
-                                  w.document.write(`<body style="margin:0;"><iframe src="${receipt.fileData}" width="100%" height="100%" style="border:none;"></iframe></body>`);
-                                } else {
-                                  w.location.href = receipt.fileData;
-                                }
+                        <button
+                          onClick={() => {
+                            const w = window.open('about:blank', '_blank');
+                            if (w) {
+                              if (receipt.fileData.startsWith('data:image')) {
+                                w.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;"><img src="${receipt.fileData}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
+                              } else if (receipt.fileData.startsWith('data:application/pdf')) {
+                                w.document.write(`<body style="margin:0;"><iframe src="${receipt.fileData}" width="100%" height="100%" style="border:none;"></iframe></body>`);
+                              } else {
+                                w.location.href = receipt.fileData;
                               }
-                            }}
-                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
-                            title="View Receipt"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span className="hidden sm:inline">View</span>
-                          </button>
-                        )}
+                            }
+                          }}
+                          className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
+                          title="View Receipt"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="hidden sm:inline">View</span>
+                        </button>
                         {(user?.role === 'admin' || settings?.allowUserDownloads !== false) && (
                           <a 
                             href={receipt.fileData}
