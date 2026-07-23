@@ -3,9 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { LoginPage } from './pages/LoginPage';
 import { Sidebar } from './components/Sidebar';
 import { useInactivityLogout } from './hooks/useInactivityLogout';
-import { store, User } from './lib/store';
+import { store, User, SystemSettings, UserFeatureToggles, isUserFeatureEnabled } from './lib/store';
 import { db } from './lib/firebase';
 import { doc, getDoc, onSnapshot, getDocFromServer } from 'firebase/firestore';
+import { pullAllFromFirestore, subscribeToChanges } from './lib/firestoreSync';
 import { Toaster } from 'sonner';
 
 // Lazy loading for large pages
@@ -43,12 +44,16 @@ export function ProtectedRoute({
   children, 
   user,
   adminOnly = false,
-  userOnly = false
+  userOnly = false,
+  featureKey,
+  settings
 }: { 
   children: React.ReactNode, 
   user: User | null,
   adminOnly?: boolean,
-  userOnly?: boolean
+  userOnly?: boolean,
+  featureKey?: keyof UserFeatureToggles,
+  settings?: SystemSettings | null
 }) {
   const location = useLocation();
 
@@ -64,12 +69,42 @@ export function ProtectedRoute({
     return <Navigate to="/dashboard" replace />;
   }
 
+  // Feature gate check for non-admin users
+  if (user.role === 'user' && featureKey) {
+    if (!isUserFeatureEnabled(settings, featureKey)) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
   return <>{children}</>;
 }
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [settings, setSettings] = useState<SystemSettings | null>(store.settings);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let unmounted = false;
+    
+    // Settings listener
+    pullAllFromFirestore().then(data => {
+      if (!unmounted && data?.settings) {
+        setSettings(data.settings);
+      }
+    });
+
+    const unsubSettings = subscribeToChanges((data, collectionName) => {
+      if (!unmounted && collectionName === 'settings') {
+        setSettings(data);
+      }
+    });
+
+    return () => {
+      unmounted = true;
+      unsubSettings();
+    };
+  }, []);
 
   useEffect(() => {
     let unsubSession: (() => void) | undefined;
@@ -168,7 +203,7 @@ export default function App() {
         <Route path="/" element={<LoginPage />} />
         
         <Route path="/dashboard" element={
-          <ProtectedRoute user={user}>
+          <ProtectedRoute user={user} settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><DashboardPage user={user} /></Suspense>
             </AppLayout>
@@ -176,7 +211,7 @@ export default function App() {
         } />
 
         <Route path="/generate-bill" element={
-          <ProtectedRoute user={user} userOnly>
+          <ProtectedRoute user={user} userOnly featureKey="generateBill" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><GenerateBillPage user={user} /></Suspense>
             </AppLayout>
@@ -184,7 +219,7 @@ export default function App() {
         } />
 
          <Route path="/lift-bill" element={
-          <ProtectedRoute user={user} userOnly>
+          <ProtectedRoute user={user} userOnly featureKey="liftBill" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
                <Suspense fallback={<PageLoader />}><LiftBillPage user={user} /></Suspense>
             </AppLayout>
@@ -192,7 +227,7 @@ export default function App() {
         } />
 
         <Route path="/upload-receipts" element={
-          <ProtectedRoute user={user}>
+          <ProtectedRoute user={user} featureKey="uploadReceipts" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><UploadReceiptsPage user={user} /></Suspense>
             </AppLayout>
@@ -200,7 +235,7 @@ export default function App() {
         } />
 
         <Route path="/refunds" element={
-          <ProtectedRoute user={user}>
+          <ProtectedRoute user={user} featureKey="refunds" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><RefundsPage user={user} /></Suspense>
             </AppLayout>
@@ -208,7 +243,7 @@ export default function App() {
         } />
 
         <Route path="/history" element={
-          <ProtectedRoute user={user}>
+          <ProtectedRoute user={user} featureKey="history" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><HistoryPage user={user} /></Suspense>
             </AppLayout>
@@ -216,7 +251,7 @@ export default function App() {
         } />
 
         <Route path="/analytics" element={
-          <ProtectedRoute user={user}>
+          <ProtectedRoute user={user} featureKey="analytics" settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><AnalyticsPage user={user} /></Suspense>
             </AppLayout>
@@ -224,7 +259,7 @@ export default function App() {
         } />
 
         <Route path="/admin" element={
-          <ProtectedRoute user={user} adminOnly>
+          <ProtectedRoute user={user} adminOnly settings={settings}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><AdminPage user={user} /></Suspense>
             </AppLayout>

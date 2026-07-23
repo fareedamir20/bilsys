@@ -16,6 +16,15 @@ export interface ExpenseCategory {
   floors?: string[]; // empty or undefined means all floors, otherwise list of specific floors
 }
 
+export interface UserFeatureToggles {
+  generateBill?: boolean;   // Generate Bill page
+  liftBill?: boolean;       // LESCO Lift Bill page
+  uploadReceipts?: boolean; // Upload Receipts page
+  refunds?: boolean;        // Refunds page
+  history?: boolean;        // History page
+  analytics?: boolean;      // Analytics page
+}
+
 export interface SystemSettings {
   serviceChargesLimit: number;
   maxBillsPerMonth: number;
@@ -29,6 +38,26 @@ export interface SystemSettings {
   liftCategories: ExpenseCategory[];
   allowUserDownloads?: boolean;
   enableRefunds?: boolean;
+  userFeatureToggles?: UserFeatureToggles;
+}
+
+export function isUserFeatureEnabled(
+  settings: SystemSettings | null | undefined,
+  feature: keyof UserFeatureToggles
+): boolean {
+  if (!settings) return true;
+  if (feature === 'refunds') {
+    if (settings.userFeatureToggles?.refunds !== undefined) {
+      return Boolean(settings.userFeatureToggles.refunds);
+    }
+    if (settings.enableRefunds !== undefined) {
+      return Boolean(settings.enableRefunds);
+    }
+    return true;
+  }
+  if (!settings.userFeatureToggles) return true;
+  const val = settings.userFeatureToggles[feature];
+  return val === undefined ? true : Boolean(val);
 }
 
 export interface RefundRequest {

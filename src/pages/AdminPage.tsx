@@ -1,6 +1,6 @@
 import { generateId } from '../lib/utils';
 import React, { useState, useEffect } from 'react';
-import { User, SystemSettings, PendingExpense, ActivityLog, ExpenseCategory } from '../lib/store';
+import { User, SystemSettings, PendingExpense, ActivityLog, ExpenseCategory, UserFeatureToggles } from '../lib/store';
 import { 
   pullAllFromFirestore, 
   pushSettings, 
@@ -12,7 +12,7 @@ import {
 } from '../lib/firestoreSync';
 import { toast } from 'sonner';
 import { exportDataPDF } from '../lib/pdfGenerator';
-import { Loader2, Users, Settings as SettingsIcon, CheckCircle2, History as HistoryIcon, Plus, Trash2, SwitchCamera, Pencil, Download, BarChart3, Shield, Webhook } from 'lucide-react';
+import { Loader2, Users, Settings as SettingsIcon, CheckCircle2, History as HistoryIcon, Plus, Trash2, SwitchCamera, Pencil, Download, BarChart3, Shield, Webhook, FileText, Wrench, UploadCloud, Banknote, Eye, EyeOff } from 'lucide-react';
 import { formatDateTimeDMY } from '../lib/utils';
 import { db } from '../lib/firebase';
 import { query, collection, where, getDocs } from 'firebase/firestore';
@@ -89,7 +89,8 @@ export function AdminPage({ user }: { user: User | null }) {
   const [logFilter, setLogFilter] = useState<'all' | 'edits'>('all');
   
   // Settings Tab State
-  const [settingsTab, setSettingsTab] = useState<'globals' | 'categories' | 'floors'>('globals');
+  const [settingsTab, setSettingsTab] = useState<'globals' | 'user_toggles' | 'categories' | 'floors'>('globals');
+  const [userToggleFilter, setUserToggleFilter] = useState<'all' | 'visible' | 'hidden'>('all');
 
   useEffect(() => {
     let unmounted = false;
@@ -335,23 +336,349 @@ export function AdminPage({ user }: { user: User | null }) {
             <div className="flex gap-2 border-b border-border/50 pb-2 overflow-x-auto no-scrollbar">
               <button 
                 onClick={() => setSettingsTab('globals')} 
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'globals' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'globals' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
               >
                 Global Limits & General
               </button>
               <button 
+                onClick={() => setSettingsTab('user_toggles')} 
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${settingsTab === 'user_toggles' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+              >
+                <Shield className="w-4 h-4" />
+                <span>User Tab Controls</span>
+              </button>
+              <button 
                 onClick={() => setSettingsTab('categories')} 
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'categories' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'categories' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
               >
                 Expense Categories
               </button>
               <button 
                 onClick={() => setSettingsTab('floors')} 
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'floors' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'floors' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
               >
                 Floor Management
               </button>
             </div>
+
+            {settingsTab === 'user_toggles' && (() => {
+              const allFeaturesList = [
+                { 
+                  key: 'generateBill' as const, 
+                  label: 'Generate General Bill Tab', 
+                  route: '/generate-bill',
+                  icon: FileText,
+                  desc: 'Controls access to the Generate General Bill page.' 
+                },
+                { 
+                  key: 'liftBill' as const, 
+                  label: 'LESCO Lift Bill Tab', 
+                  route: '/lift-bill',
+                  icon: Wrench,
+                  desc: 'Controls access to the LESCO Lift Bill page.' 
+                },
+                { 
+                  key: 'uploadReceipts' as const, 
+                  label: 'Upload Receipts Tab', 
+                  route: '/upload-receipts',
+                  icon: UploadCloud,
+                  desc: 'Controls access to payment receipt submission.' 
+                },
+                { 
+                  key: 'refunds' as const, 
+                  label: 'Refund Requests Tab', 
+                  route: '/refunds',
+                  icon: Banknote,
+                  desc: 'Controls access to refund request submissions.' 
+                },
+                { 
+                  key: 'history' as const, 
+                  label: 'Billing History Tab', 
+                  route: '/history',
+                  icon: HistoryIcon,
+                  desc: 'Controls access to past bills and receipt histories.' 
+                },
+                { 
+                  key: 'analytics' as const, 
+                  label: 'Analytics Dashboard Tab', 
+                  route: '/analytics',
+                  icon: BarChart3,
+                  desc: 'Controls access to expense analytics and charts.' 
+                }
+              ];
+
+              const currentToggles = settings.userFeatureToggles || {};
+              const isFeatureEnabled = (key: keyof UserFeatureToggles) => {
+                if (key === 'refunds') {
+                  return currentToggles.refunds !== undefined ? Boolean(currentToggles.refunds) : (settings.enableRefunds ?? true);
+                }
+                return currentToggles[key] === undefined ? true : Boolean(currentToggles[key]);
+              };
+
+              const hiddenCount = allFeaturesList.filter(f => !isFeatureEnabled(f.key)).length;
+              const visibleCount = allFeaturesList.filter(f => isFeatureEnabled(f.key)).length;
+
+              const filteredFeatures = allFeaturesList.filter(f => {
+                const enabled = isFeatureEnabled(f.key);
+                if (userToggleFilter === 'hidden') return !enabled;
+                if (userToggleFilter === 'visible') return enabled;
+                return true;
+              });
+
+              return (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Notice Card */}
+                  <div className="glass-card p-6 border-l-4 border-l-primary bg-primary/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-primary" />
+                        <h3 className="font-heading font-bold text-lg text-foreground">User End Feature & Tab Disappearance Controls</h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+                        Completely enable or disable specific features for resident users. Disabling a feature removes its tab from the resident sidebar and blocks direct page URL access.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allEnabled: UserFeatureToggles = {
+                            generateBill: true,
+                            liftBill: true,
+                            uploadReceipts: true,
+                            refunds: true,
+                            history: true,
+                            analytics: true
+                          };
+                          updateSetting('userFeatureToggles', allEnabled);
+                          updateSetting('enableRefunds', true);
+                          toast.success('All user features enabled');
+                        }}
+                        className="px-3 py-1.5 bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 hover:bg-emerald-500/25 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Enable All Features
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allDisabled: UserFeatureToggles = {
+                            generateBill: false,
+                            liftBill: false,
+                            uploadReceipts: false,
+                            refunds: false,
+                            history: false,
+                            analytics: false
+                          };
+                          updateSetting('userFeatureToggles', allDisabled);
+                          updateSetting('enableRefunds', false);
+                          toast.error('All user features disabled & hidden');
+                        }}
+                        className="px-3 py-1.5 bg-rose-500/15 text-rose-600 border border-rose-500/30 hover:bg-rose-500/25 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Disable All Features
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter Toolbar with "Only Hidden" Button */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-secondary/30 p-2.5 rounded-2xl border border-border/50">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mr-1">Filter View:</span>
+                      <button
+                        type="button"
+                        onClick={() => setUserToggleFilter('all')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          userToggleFilter === 'all'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background border border-border/40'
+                        }`}
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        <span>All Tabs ({allFeaturesList.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setUserToggleFilter('visible')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          userToggleFilter === 'visible'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background border border-border/40'
+                        }`}
+                      >
+                        <Eye className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Visible Only</span>
+                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded-full text-[10px] font-extrabold">
+                          {visibleCount}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setUserToggleFilter('hidden')}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          userToggleFilter === 'hidden'
+                            ? 'bg-rose-600 text-white shadow-sm ring-2 ring-rose-500/40'
+                            : 'bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 border border-rose-500/30'
+                        }`}
+                      >
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Only Hidden</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          hiddenCount > 0 ? 'bg-rose-500 text-white animate-pulse' : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {hiddenCount}
+                        </span>
+                      </button>
+                    </div>
+
+                    {userToggleFilter === 'hidden' && (
+                      <div className="text-xs text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 rounded-lg border border-rose-500/20">
+                        <EyeOff className="w-3.5 h-3.5" />
+                        <span>Filtered: Displaying strictly hidden tabs ({hiddenCount})</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Toggles Grid */}
+                  {filteredFeatures.length === 0 ? (
+                    <div className="glass-card p-8 text-center space-y-3 bg-secondary/10 border border-dashed border-border/80">
+                      <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto">
+                        <EyeOff className="w-6 h-6" />
+                      </div>
+                      <h4 className="font-heading font-bold text-base text-foreground">No Hidden Tabs Found</h4>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        {userToggleFilter === 'hidden' 
+                          ? 'All tabs are currently active and visible to resident users. No tabs are currently hidden.'
+                          : 'No features match the selected filter criteria.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setUserToggleFilter('all')}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-bold hover:opacity-90 transition-all"
+                      >
+                        View All Tabs
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filteredFeatures.map((feature) => {
+                        const Icon = feature.icon;
+                        const isEnabled = isFeatureEnabled(feature.key);
+
+                        return (
+                          <div 
+                            key={feature.key} 
+                            className={`glass-card p-5 border flex flex-col justify-between transition-all gap-4 ${
+                              isEnabled 
+                                ? 'border-emerald-500/30 bg-emerald-500/5' 
+                                : 'border-destructive/30 bg-destructive/5'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${
+                                  isEnabled ? 'bg-emerald-500/20 text-emerald-500' : 'bg-destructive/20 text-destructive'
+                                }`}>
+                                  <Icon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-heading font-bold text-base text-foreground">{feature.label}</h4>
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-secondary text-muted-foreground border border-border/50">
+                                      {feature.route}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                                    {feature.desc}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                                <input 
+                                  type="checkbox" 
+                                  className="sr-only peer" 
+                                  checked={isEnabled} 
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    const newToggles = { ...(settings.userFeatureToggles || {}), [feature.key]: val };
+                                    updateSetting('userFeatureToggles', newToggles);
+                                    if (feature.key === 'refunds') {
+                                      updateSetting('enableRefunds', val);
+                                    }
+                                  }} 
+                                />
+                                <div className="w-12 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                              </label>
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-border/40 pt-3 text-xs">
+                              <span className="text-muted-foreground font-medium">Status on User End:</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                isEnabled 
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' 
+                                  : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                              }`}>
+                                {isEnabled ? 'VISIBLE TO RESIDENTS' : 'COMPLETELY HIDDEN & REMOVED'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Live Preview Card */}
+                  <div className="glass-card p-6 space-y-3 bg-secondary/20 border border-border/60 rounded-2xl">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-heading font-bold text-sm text-foreground flex items-center gap-2">
+                        <span>Live User Sidebar Preview (Resident Perspective)</span>
+                      </h4>
+                      <span className="text-xs text-muted-foreground font-mono">Real-time simulation</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Below is how the left sidebar navigation currently appears to a resident user:
+                    </p>
+
+                    <div className="bg-background border border-border/80 rounded-xl p-3 max-w-sm space-y-1.5 shadow-inner">
+                      <div className="p-2 rounded-lg bg-primary/10 text-primary font-bold text-xs flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                        <span>Dashboard (Always Enabled)</span>
+                      </div>
+                      {allFeaturesList.map(item => {
+                        const isEnabled = isFeatureEnabled(item.key);
+                        
+                        if (!isEnabled) {
+                          return (
+                            <div key={item.key} className="p-2 rounded-lg border border-dashed border-destructive/30 text-destructive/50 text-xs flex items-center justify-between opacity-60 line-through bg-destructive/5">
+                              <span className="flex items-center gap-2">
+                                <item.icon className="w-3.5 h-3.5" />
+                                <span>{item.label}</span>
+                              </span>
+                              <span className="text-[9px] uppercase font-black text-rose-500 flex items-center gap-1">
+                                <EyeOff className="w-3 h-3" /> Hidden
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={item.key} className="p-2 rounded-lg bg-secondary/60 text-foreground text-xs flex items-center justify-between">
+                            <span className="flex items-center gap-2 font-medium">
+                              <item.icon className="w-3.5 h-3.5 text-primary" />
+                              <span>{item.label}</span>
+                            </span>
+                            <span className="text-[9px] uppercase font-bold text-emerald-500">Visible</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {settingsTab === 'globals' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

@@ -3,9 +3,10 @@ import { User, SystemSettings, RefundRequest } from '../lib/store';
 import { generateId, formatDateDMY } from '../lib/utils';
 import { pullAllFromFirestore, pushRefundRequest, pushUpdateRefundStatus, subscribeToChanges } from '../lib/firestoreSync';
 import { toast } from 'sonner';
-import { Loader2, UploadCloud, FileIcon, Eye, CheckCircle2, XCircle, Clock, Trash2, Check, X } from 'lucide-react';
+import { Loader2, UploadCloud, FileIcon, Eye, CheckCircle2, XCircle, Clock, Trash2, Check, X, Download, Maximize2, Minimize2, Banknote, ExternalLink, FileText, User as UserIcon } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { parseWordsToNumber, extractOcrData } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 
 export function RefundsPage({ user }: { user: User | null }) {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
@@ -13,6 +14,10 @@ export function RefundsPage({ user }: { user: User | null }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
+
+  // Selected Refund Modal State
+  const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null);
+  const [imageZoomed, setImageZoomed] = useState(false);
 
   // Form State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -282,79 +287,279 @@ export function RefundsPage({ user }: { user: User | null }) {
       )}
 
       <div className="space-y-4">
-        <h2 className="text-xl font-heading font-bold flex items-center gap-2 border-b border-border/50 pb-2">
-          Refund History
+        <h2 className="text-xl font-heading font-bold flex items-center justify-between border-b border-border/50 pb-2">
+          <span>Refund History</span>
+          <span className="text-xs font-normal text-muted-foreground">{visibleRefunds.length} requests</span>
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {visibleRefunds.map(refund => (
-            <div key={refund.id} className="glass-card p-4 flex flex-col gap-3 group relative">
+            <div 
+              key={refund.id} 
+              onClick={() => { setSelectedRefund(refund); setImageZoomed(false); }}
+              className="glass-card p-4 flex flex-col gap-3 group relative cursor-pointer hover:border-primary/50 transition-all hover:shadow-md"
+            >
               {/* Status Badge */}
-              <div className={`absolute top-4 right-4 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                refund.status === 'Pending' ? 'bg-amber-500/10 text-amber-500' :
-                refund.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-500' :
-                'bg-destructive/10 text-destructive'
+              <div className={`absolute top-4 right-4 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider z-10 ${
+                refund.status === 'Pending' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30' :
+                refund.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                'bg-destructive/15 text-destructive border border-destructive/30'
               }`}>
                 {refund.status}
               </div>
 
               <div className="min-w-0 pr-20">
-                <p className="text-sm font-bold truncate">Ref: {refund.transactionRef}</p>
-                <p className="text-lg font-black text-primary my-1">Rs {refund.amount.toLocaleString()}</p>
+                <p className="text-sm font-bold truncate text-foreground">Ref: {refund.transactionRef || 'N/A'}</p>
+                <p className="text-xl font-black text-primary font-mono my-0.5">Rs {refund.amount.toLocaleString()}</p>
               </div>
 
-              <div className="h-32 bg-secondary/30 rounded-lg flex items-center justify-center overflow-hidden border border-border/50 relative group/img">
-                <img src={refund.screenshotData} alt="Screenshot" className="w-full h-full object-cover opacity-80 group-hover/img:opacity-100 transition-opacity" />
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity text-white">
-                  <button
-                    onClick={() => {
-                      const w = window.open('about:blank', '_blank');
-                      if (w) w.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;"><img src="${refund.screenshotData}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
-                    }}
-                    className="flex items-center gap-2 hover:text-primary transition-colors text-sm font-medium"
-                  >
-                    <Eye className="w-5 h-5" /> View Screenshot
-                  </button>
+              <div className="h-36 bg-secondary/30 rounded-xl flex items-center justify-center overflow-hidden border border-border/50 relative group/img">
+                <img 
+                  src={refund.screenshotData} 
+                  alt="Payment Screenshot" 
+                  className="w-full h-full object-cover opacity-85 group-hover/img:opacity-100 transition-opacity" 
+                />
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity text-white gap-1 backdrop-blur-[2px]">
+                  <Eye className="w-6 h-6 text-primary animate-pulse" />
+                  <span className="text-xs font-semibold tracking-wide">Open Request Details</span>
                 </div>
               </div>
 
-              <div className="text-xs text-muted-foreground space-y-1.5 mt-2 bg-secondary/20 p-3 rounded-lg">
-                <p className="flex justify-between"><span>Date/Time:</span> <span className="font-medium text-foreground">{refund.date} {refund.time}</span></p>
-                <p className="flex justify-between"><span>Period:</span> <span className="font-medium text-foreground">{refund.floor} - {refund.month} {refund.year}</span></p>
+              <div className="text-xs text-muted-foreground space-y-1.5 mt-1 bg-secondary/20 p-3 rounded-xl border border-border/40">
+                <p className="flex justify-between items-center">
+                  <span>Date/Time:</span> 
+                  <span className="font-semibold text-foreground font-mono">{refund.date} {refund.time}</span>
+                </p>
+                <p className="flex justify-between items-center">
+                  <span>Period:</span> 
+                  <span className="font-semibold text-foreground">{refund.floor} • {refund.month} {refund.year}</span>
+                </p>
                 {user?.role === 'admin' && (
-                  <p className="flex justify-between border-t border-border/50 pt-1.5 mt-1.5"><span>User:</span> <span className="font-medium text-foreground">{refund.userName}</span></p>
+                  <p className="flex justify-between items-center border-t border-border/50 pt-1.5 mt-1.5">
+                    <span>Submitted by:</span> 
+                    <span className="font-semibold text-foreground">{refund.userName}</span>
+                  </p>
                 )}
                 {refund.notes && (
-                  <p className="mt-2 text-foreground/80 italic line-clamp-2">"{refund.notes}"</p>
+                  <p className="mt-1.5 text-foreground/80 italic line-clamp-1 border-t border-border/40 pt-1.5">
+                    "{refund.notes}"
+                  </p>
                 )}
               </div>
 
-              {user?.role === 'admin' && refund.status === 'Pending' && (
-                <div className="flex gap-2 pt-2 border-t border-border/50">
-                  <button 
-                    onClick={() => handleStatusChange(refund.id, 'Approved')}
-                    className="flex-1 btn-primary py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white border-transparent text-xs"
-                  >
-                    Approve
-                  </button>
-                  <button 
-                    onClick={() => handleStatusChange(refund.id, 'Rejected')}
-                    className="flex-1 btn-primary py-1.5 bg-destructive hover:bg-destructive/90 text-white border-transparent text-xs"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
+              <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedRefund(refund);
+                    setImageZoomed(false);
+                  }}
+                  className="text-xs text-primary font-medium flex items-center gap-1 hover:underline"
+                >
+                  <Eye className="w-3.5 h-3.5" /> View Details
+                </button>
+
+                {user?.role === 'admin' && refund.status === 'Pending' && (
+                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <button 
+                      onClick={() => handleStatusChange(refund.id, 'Approved')}
+                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors uppercase tracking-wider"
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => handleStatusChange(refund.id, 'Rejected')}
+                      className="px-2.5 py-1 bg-destructive hover:bg-destructive/90 text-white rounded-lg text-xs font-bold transition-colors uppercase tracking-wider"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
           
           {visibleRefunds.length === 0 && (
-            <div className="col-span-full py-12 text-center text-muted-foreground glass-card border-dashed">
-              No refund requests found.
+            <div className="col-span-full py-16 text-center text-muted-foreground glass-card border-dashed flex flex-col items-center justify-center gap-2">
+              <Banknote className="w-10 h-10 text-muted-foreground/50" />
+              <p className="font-medium text-base">No refund requests found.</p>
+              <p className="text-xs text-muted-foreground">Upload a payment screenshot above to request a refund.</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Openable Refund Details Modal */}
+      <AnimatePresence>
+        {selectedRefund && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-card w-full max-w-4xl rounded-2xl border border-border shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh] text-foreground"
+            >
+              {/* Header */}
+              <div className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between bg-secondary/30 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-heading font-bold text-base sm:text-lg text-foreground">
+                        Refund Request
+                      </h3>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                        selectedRefund.status === 'Pending' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/30' :
+                        selectedRefund.status === 'Approved' ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30' :
+                        'bg-destructive/15 text-destructive border border-destructive/30'
+                      }`}>
+                        {selectedRefund.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono truncate">
+                      Ref: {selectedRefund.transactionRef || selectedRefund.id}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setSelectedRefund(null); setImageZoomed(false); }}
+                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors shrink-0"
+                  title="Close Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  
+                  {/* Screenshot View */}
+                  <div className="lg:col-span-7 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground font-medium px-1">
+                      <span>Payment Screenshot</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setImageZoomed(!imageZoomed)}
+                          className="hover:text-foreground text-xs flex items-center gap-1 transition-colors bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-lg border border-border/50"
+                        >
+                          {imageZoomed ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                          {imageZoomed ? 'Fit Screen' : 'Expand View'}
+                        </button>
+                        <a
+                          href={selectedRefund.screenshotData}
+                          download={`Refund_${selectedRefund.transactionRef || selectedRefund.id}.png`}
+                          className="hover:text-primary text-xs flex items-center gap-1 transition-colors bg-secondary/60 hover:bg-secondary px-2.5 py-1 rounded-lg border border-border/50"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Save Image
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className={`rounded-2xl border border-border/80 bg-black/60 overflow-hidden relative flex items-center justify-center p-2 transition-all ${
+                      imageZoomed ? 'min-h-[420px] max-h-[70vh]' : 'min-h-[250px] max-h-[380px]'
+                    }`}>
+                      <img 
+                        src={selectedRefund.screenshotData} 
+                        alt="Refund Screenshot" 
+                        className={`max-w-full rounded-xl transition-all ${
+                          imageZoomed ? 'max-h-[70vh] object-contain' : 'max-h-[360px] object-contain'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Information Panel */}
+                  <div className="lg:col-span-5 space-y-4">
+                    <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 flex flex-col justify-center">
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Claimed Amount</span>
+                      <span className="text-2xl sm:text-3xl font-black text-primary font-mono mt-0.5">
+                        Rs {selectedRefund.amount.toLocaleString()}
+                      </span>
+                    </div>
+
+                    <div className="bg-secondary/30 rounded-2xl p-4 border border-border/60 space-y-3 text-xs sm:text-sm">
+                      <div className="flex justify-between items-center pb-2.5 border-b border-border/40">
+                        <span className="text-muted-foreground font-medium">Transaction Reference:</span>
+                        <span className="font-bold text-foreground font-mono">{selectedRefund.transactionRef || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2.5 border-b border-border/40">
+                        <span className="text-muted-foreground font-medium">Payment Date & Time:</span>
+                        <span className="font-semibold text-foreground">{selectedRefund.date || 'N/A'} {selectedRefund.time || ''}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2.5 border-b border-border/40">
+                        <span className="text-muted-foreground font-medium">Building Floor:</span>
+                        <span className="font-semibold text-foreground">{selectedRefund.floor}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2.5 border-b border-border/40">
+                        <span className="text-muted-foreground font-medium">Billing Period:</span>
+                        <span className="font-semibold text-foreground">{selectedRefund.month} {selectedRefund.year}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-2.5 border-b border-border/40">
+                        <span className="text-muted-foreground font-medium">Submitted By:</span>
+                        <span className="font-semibold text-foreground">{selectedRefund.userName}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground font-medium">Submitted Timestamp:</span>
+                        <span className="text-foreground text-xs">{formatDateDMY(selectedRefund.uploadedAt)}</span>
+                      </div>
+                    </div>
+
+                    {selectedRefund.notes && (
+                      <div className="bg-secondary/20 rounded-2xl p-4 border border-border/40 text-xs sm:text-sm">
+                        <span className="text-muted-foreground font-bold block mb-1 uppercase text-[10px] tracking-wider">Notes / Reason:</span>
+                        <p className="text-foreground/90 italic whitespace-pre-wrap">"{selectedRefund.notes}"</p>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="p-4 border-t border-border/60 bg-secondary/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                <div className="text-xs text-muted-foreground">
+                  Status: <span className="font-bold text-foreground">{selectedRefund.status}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {user?.role === 'admin' && selectedRefund.status === 'Pending' && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          await handleStatusChange(selectedRefund.id, 'Approved');
+                          setSelectedRefund(prev => prev ? { ...prev, status: 'Approved' } : null);
+                        }}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-colors uppercase tracking-wider flex items-center gap-1.5 min-h-[40px]"
+                      >
+                        <Check className="w-4 h-4" /> Approve
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await handleStatusChange(selectedRefund.id, 'Rejected');
+                          setSelectedRefund(prev => prev ? { ...prev, status: 'Rejected' } : null);
+                        }}
+                        className="px-4 py-2 bg-destructive hover:bg-destructive/90 text-white rounded-xl text-xs font-bold transition-colors uppercase tracking-wider flex items-center gap-1.5 min-h-[40px]"
+                      >
+                        <X className="w-4 h-4" /> Reject
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => { setSelectedRefund(null); setImageZoomed(false); }}
+                    className="px-5 py-2 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded-xl text-xs font-bold transition-colors min-h-[40px]"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+

@@ -19,11 +19,11 @@ import {
   Download,
   Banknote
 } from 'lucide-react';
-import { store, User } from '../lib/store';
+import { store, User, SystemSettings, isUserFeatureEnabled } from '../lib/store';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { pushActivityLog } from '../lib/firestoreSync';
+import { pushActivityLog, pullAllFromFirestore, subscribeToChanges } from '../lib/firestoreSync';
 
 interface SidebarProps {
   user: User | null;
@@ -33,6 +33,27 @@ interface SidebarProps {
 export function Sidebar({ user, onLogout }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(store.theme === 'dark');
+  const [settings, setSettings] = useState<SystemSettings | null>(store.settings);
+
+  useEffect(() => {
+    let unmounted = false;
+    pullAllFromFirestore().then(data => {
+      if (!unmounted && data?.settings) {
+        setSettings(data.settings);
+      }
+    });
+
+    const unsub = subscribeToChanges((data, collectionName) => {
+      if (!unmounted && collectionName === 'settings') {
+        setSettings(data);
+      }
+    });
+
+    return () => {
+      unmounted = true;
+      unsub();
+    };
+  }, []);
 
   useEffect(() => {
     if (isDark) {
@@ -67,19 +88,24 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
   };
 
   const navLinks = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    ...(user?.role === 'user' ? [
-      { to: '/generate-bill', icon: FileText, label: 'Generate Bill' },
-      { to: '/lift-bill', icon: Wrench, label: 'LESCO Lift Bill' },
-    ] : []),
-    { to: '/upload-receipts', icon: UploadCloud, label: 'Upload Receipts' },
-    { to: '/refunds', icon: Banknote, label: 'Refunds' },
-    { to: '/history', icon: History, label: 'History' },
-    { to: '/analytics', icon: BarChart, label: 'Analytics' },
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', key: null },
+    { to: '/generate-bill', icon: FileText, label: 'Generate Bill', key: 'generateBill' as const },
+    { to: '/lift-bill', icon: Wrench, label: 'LESCO Lift Bill', key: 'liftBill' as const },
+    { to: '/upload-receipts', icon: UploadCloud, label: 'Upload Receipts', key: 'uploadReceipts' as const },
+    { to: '/refunds', icon: Banknote, label: 'Refunds', key: 'refunds' as const },
+    { to: '/history', icon: History, label: 'History', key: 'history' as const },
+    { to: '/analytics', icon: BarChart, label: 'Analytics', key: 'analytics' as const },
     ...(user?.role === 'admin' ? [
-      { to: '/admin', icon: Settings, label: 'Admin Panel' }
+      { to: '/admin', icon: Settings, label: 'Admin Panel', key: null }
     ] : [])
   ];
+
+  const visibleNavLinks = navLinks.filter(link => {
+    if (link.label === 'Admin Panel') return false;
+    if (user?.role === 'admin') return true;
+    if (!link.key) return true;
+    return isUserFeatureEnabled(settings, link.key);
+  });
 
   return (
     <>
@@ -117,7 +143,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
 
         {/* Nav Items */}
         <nav className="flex-1 overflow-y-auto py-4 px-4 space-y-2">
-          {navLinks.filter(l => l.label !== 'Admin Panel').map((link) => (
+          {visibleNavLinks.map((link) => (
             <NavLink 
               key={link.to} 
               to={link.to}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { User, Bill, Receipt } from '../lib/store';
 import { pullAllFromFirestore, pushDeleteBill, pushDeleteReceipt, subscribeToChanges } from '../lib/firestoreSync';
 import { toast } from 'sonner';
-import { Loader2, FileText, Download, Trash2, FileIcon, Edit2, X, BarChart2, Plus, Eye } from 'lucide-react';
+import { Loader2, FileText, Download, Trash2, FileIcon, Edit2, X, BarChart2, Plus, Eye, ExternalLink, Maximize2, Minimize2 } from 'lucide-react';
 import { formatDateTimeDMY, formatDateDMY } from '../lib/utils';
 import { generateBillPDF, viewBillPDF } from '../lib/pdfGenerator';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
@@ -25,6 +25,7 @@ export function HistoryPage({ user }: { user: User | null }) {
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'bill' | 'receipt', id: string } | null>(null);
   const [editBill, setEditBill] = useState<Bill | null>(null);
+  const [viewReceipt, setViewReceipt] = useState<Receipt | null>(null);
 
   useEffect(() => {
     let unmounted = false;
@@ -434,20 +435,9 @@ export function HistoryPage({ user }: { user: User | null }) {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => {
-                            const w = window.open('about:blank', '_blank');
-                            if (w) {
-                              if (receipt.fileData.startsWith('data:image')) {
-                                w.document.write(`<body style="margin:0;display:flex;justify-content:center;align-items:center;background:#0f172a;"><img src="${receipt.fileData}" style="max-width:100%;max-height:100vh;object-fit:contain;" /></body>`);
-                              } else if (receipt.fileData.startsWith('data:application/pdf')) {
-                                w.document.write(`<body style="margin:0;"><iframe src="${receipt.fileData}" width="100%" height="100%" style="border:none;"></iframe></body>`);
-                              } else {
-                                w.location.href = receipt.fileData;
-                              }
-                            }
-                          }}
+                          onClick={() => setViewReceipt(receipt)}
                           className="p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20 flex items-center gap-2 text-xs font-medium"
-                          title="View Receipt"
+                          title="View Receipt Details"
                         >
                           <Eye className="w-4 h-4" />
                           <span className="hidden sm:inline">View</span>
@@ -636,6 +626,102 @@ export function HistoryPage({ user }: { user: User | null }) {
                   <button onClick={() => setEditBill(null)} className="btn-secondary flex-1 sm:flex-none">Cancel</button>
                   <button onClick={handleSaveEdit} className="btn-primary flex-1 sm:flex-none shadow-lg shadow-primary/20">Save Changes</button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* View Receipt Modal */}
+        {viewReceipt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-card w-full max-w-3xl rounded-2xl border border-border shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]"
+            >
+              <div className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between bg-secondary/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
+                    <FileIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading font-bold text-base sm:text-lg text-foreground truncate max-w-[250px] sm:max-w-[400px]">
+                      {viewReceipt.fileName}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {viewReceipt.category} • Floor {viewReceipt.floor || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewReceipt(null)}
+                  className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                <div className="rounded-xl border border-border bg-black/50 overflow-hidden flex items-center justify-center min-h-[300px] max-h-[60vh] p-2">
+                  {viewReceipt.fileData.startsWith('data:image') ? (
+                    <img 
+                      src={viewReceipt.fileData} 
+                      alt={viewReceipt.fileName} 
+                      className="max-w-full max-h-[55vh] object-contain rounded-lg"
+                    />
+                  ) : viewReceipt.fileData.startsWith('data:application/pdf') ? (
+                    <iframe 
+                      src={viewReceipt.fileData} 
+                      className="w-full h-[500px] border-0 rounded-lg" 
+                      title={viewReceipt.fileName}
+                    />
+                  ) : (
+                    <a 
+                      href={viewReceipt.fileData} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="btn-primary"
+                    >
+                      Open File
+                    </a>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-secondary/30 p-3.5 rounded-xl text-xs sm:text-sm border border-border/50">
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Category</span>
+                    <span className="font-bold text-foreground">{viewReceipt.category}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Floor</span>
+                    <span className="font-bold text-foreground">{viewReceipt.floor || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Uploaded By</span>
+                    <span className="font-bold text-foreground">{viewReceipt.userName}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground text-xs block">Status</span>
+                    <span className="font-bold text-emerald-500">{viewReceipt.status || 'Paid'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-border/60 bg-secondary/30 flex items-center justify-between gap-3">
+                <a
+                  href={viewReceipt.fileData}
+                  download={viewReceipt.fileName}
+                  className="btn-primary text-xs flex items-center gap-2 py-2 px-4"
+                >
+                  <Download className="w-4 h-4" /> Download File
+                </a>
+                <button
+                  onClick={() => setViewReceipt(null)}
+                  className="btn-secondary text-xs py-2 px-4"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </div>
