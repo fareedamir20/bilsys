@@ -376,6 +376,17 @@ export function AdminPage({ user }: { user: User | null }) {
                         <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                       </label>
                     </div>
+
+                    <div className="flex items-center justify-between border-t border-border/50 pt-4">
+                      <div>
+                        <label className="text-sm font-medium">Enable Refunds</label>
+                        <p className="text-xs text-muted-foreground">Users can submit refund requests with screenshots.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={settings.enableRefunds ?? false} onChange={e=>updateSetting('enableRefunds', e.target.checked)} />
+                        <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
                     
                     <div className="space-y-2 pt-2 border-t border-border/50">
                       <label className="text-sm font-medium">Dashboard Message</label>

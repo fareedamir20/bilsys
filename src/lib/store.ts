@@ -28,6 +28,25 @@ export interface SystemSettings {
   generalCategories: ExpenseCategory[];
   liftCategories: ExpenseCategory[];
   allowUserDownloads?: boolean;
+  enableRefunds?: boolean;
+}
+
+export interface RefundRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  floor: string;
+  month: string;
+  year: string;
+  notes: string;
+  transactionRef: string;
+  amount: number;
+  date: string;
+  time: string;
+  toAccountName?: string;
+  screenshotData: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  uploadedAt: string;
 }
 
 export interface AdditionalExpense {

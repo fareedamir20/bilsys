@@ -31,7 +31,8 @@ import {
   Receipt,
   SystemSettings,
   ActivityLog,
-  PendingExpense
+  PendingExpense,
+  RefundRequest
 } from './store';
 
 // Helper enum for Error Handling
@@ -218,6 +219,12 @@ function activateGlobalListeners() {
     subscribers.forEach(cb => cb(data, 'receipts'));
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'receipts'));
 
+  onSnapshot(collection(db, 'refunds'), (snap) => {
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (globalDataCache) globalDataCache.refunds = data;
+    subscribers.forEach(cb => cb(data, 'refunds'));
+  }, (err) => handleFirestoreError(err, OperationType.LIST, 'refunds'));
+
   onSnapshot(doc(db, 'settings', 'system'), (snap) => {
     if (snap.exists()) {
       const data = snap.data();
@@ -247,13 +254,14 @@ export async function pullAllFromFirestore() {
 
   globalDataPromise = (async () => {
     try {
-      const [usersSnap, billsSnap, receiptsSnap, settingsSnap, logsSnap, pendingSnap] = await Promise.all([
+      const [usersSnap, billsSnap, receiptsSnap, settingsSnap, logsSnap, pendingSnap, refundsSnap] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'bills')),
         getDocs(collection(db, 'receipts')),
         getDoc(doc(db, 'settings', 'system')),
         getDocs(query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(100))),
-        getDocs(collection(db, 'pending_expenses'))
+        getDocs(collection(db, 'pending_expenses')),
+        getDocs(collection(db, 'refunds'))
       ]);
 
       globalDataCache = {
@@ -263,6 +271,7 @@ export async function pullAllFromFirestore() {
         settings: settingsSnap.exists() ? settingsSnap.data() as SystemSettings : null,
         logs: logsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ActivityLog)),
         pendingExpenses: pendingSnap.docs.map(d => ({ id: d.id, ...d.data() } as PendingExpense)),
+        refunds: refundsSnap.docs.map(d => ({ id: d.id, ...d.data() } as RefundRequest)),
       };
       
       // Seed subscribers once if they missed initial snap
@@ -273,6 +282,7 @@ export async function pullAllFromFirestore() {
         cb(globalDataCache.settings, 'settings');
         cb(globalDataCache.logs, 'logs');
         cb(globalDataCache.pendingExpenses, 'pendingExpenses');
+        cb(globalDataCache.refunds, 'refunds');
       });
 
       return globalDataCache;
@@ -299,6 +309,7 @@ export function subscribeToChanges(callback: SubscriptionCallback) {
     callback(globalDataCache.settings, 'settings');
     callback(globalDataCache.logs, 'logs');
     callback(globalDataCache.pendingExpenses, 'pendingExpenses');
+    callback(globalDataCache.refunds, 'refunds');
   }
 
   return () => {
@@ -409,5 +420,21 @@ export async function pushApproveExpense(expenseId: string, status: 'approved' |
     });
   } catch (e) {
     handleFirestoreError(e, OperationType.UPDATE, `pending_expenses/${expenseId}`);
+  }
+}
+
+export async function pushRefundRequest(refund: RefundRequest) {
+  try {
+    await setDoc(doc(db, 'refunds', refund.id), refund);
+  } catch (e) {
+    handleFirestoreError(e, OperationType.WRITE, `refunds/${refund.id}`);
+  }
+}
+
+export async function pushUpdateRefundStatus(refundId: string, status: 'Pending' | 'Approved' | 'Rejected') {
+  try {
+    await updateDoc(doc(db, 'refunds', refundId), { status });
+  } catch (e) {
+    handleFirestoreError(e, OperationType.UPDATE, `refunds/${refundId}`);
   }
 }

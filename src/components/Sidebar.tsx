@@ -16,7 +16,8 @@ import {
   BarChart,
   Users,
   CheckCircle2,
-  Download
+  Download,
+  Banknote
 } from 'lucide-react';
 import { store, User } from '../lib/store';
 import { useNavigate } from 'react-router-dom';
@@ -72,6 +73,7 @@ export function Sidebar({ user, onLogout }: SidebarProps) {
       { to: '/lift-bill', icon: Wrench, label: 'LESCO Lift Bill' },
     ] : []),
     { to: '/upload-receipts', icon: UploadCloud, label: 'Upload Receipts' },
+    { to: '/refunds', icon: Banknote, label: 'Refunds' },
     { to: '/history', icon: History, label: 'History' },
     { to: '/analytics', icon: BarChart, label: 'Analytics' },
     ...(user?.role === 'admin' ? [

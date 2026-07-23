@@ -13,6 +13,7 @@ const DashboardPage = React.lazy(() => import('./pages/DashboardPage').then(m =>
 const GenerateBillPage = React.lazy(() => import('./pages/GenerateBillPage').then(m => ({ default: m.GenerateBillPage })));
 const LiftBillPage = React.lazy(() => import('./pages/LiftBillPage').then(m => ({ default: m.LiftBillPage })));
 const UploadReceiptsPage = React.lazy(() => import('./pages/UploadReceiptsPage').then(m => ({ default: m.UploadReceiptsPage })));
+const RefundsPage = React.lazy(() => import('./pages/RefundsPage').then(m => ({ default: m.RefundsPage })));
 const HistoryPage = React.lazy(() => import('./pages/HistoryPage').then(m => ({ default: m.HistoryPage })));
 const AdminPage = React.lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
@@ -194,6 +195,14 @@ export default function App() {
           <ProtectedRoute user={user}>
             <AppLayout user={user} onLogout={handleLogout}>
               <Suspense fallback={<PageLoader />}><UploadReceiptsPage user={user} /></Suspense>
+            </AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/refunds" element={
+          <ProtectedRoute user={user}>
+            <AppLayout user={user} onLogout={handleLogout}>
+              <Suspense fallback={<PageLoader />}><RefundsPage user={user} /></Suspense>
             </AppLayout>
           </ProtectedRoute>
         } />
